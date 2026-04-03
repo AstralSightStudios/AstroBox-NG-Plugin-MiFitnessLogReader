@@ -8,11 +8,45 @@ use std::{
 use crate::{
     astrobox::psys_host::{self, dialog, ui},
     extractor::{self, DeviceInfo, Platform},
+    resources::{TUTORIAL_VID_ANDROID, TUTORIAL_VID_IOS},
 };
 
 pub const PICK_ANDROID_ZIP_EVENT: &str = "pick_android_zip";
 pub const PICK_IOS_SQLITE_EVENT: &str = "pick_ios_sqlite";
 pub const CLEAR_RESULT_EVENT: &str = "clear_result";
+pub const TAB_EXTRACT_EVENT: &str = "tab_extract";
+pub const TAB_TUTORIAL_EVENT: &str = "tab_tutorial";
+
+const KEY_INPUT_LOCK_PREFIX: &str = "lock_key_";
+
+const COLOR_BG_TAB_WRAP: &str = "#1C1C1E";
+const COLOR_BG_TAB_ACTIVE: &str = "#3A3A3C";
+const COLOR_BG_TAB_IDLE: &str = "transparent";
+const COLOR_BG_BADGE: &str = "#2C2C2E";
+const COLOR_BG_INPUT: &str = "#000000";
+
+const COLOR_BG_BTN_PRIMARY: &str = "#FFFFFF";
+const COLOR_TEXT_BTN_PRIMARY: &str = "#000000";
+const COLOR_BG_BTN_SECONDARY: &str = "#2C2C2E";
+const COLOR_TEXT_BTN_SECONDARY: &str = "#FFFFFF";
+const COLOR_BG_BTN_DANGER: &str = "transparent";
+const COLOR_TEXT_BTN_DANGER: &str = "#FF453A";
+
+const COLOR_BORDER_SOFT: &str = "#2C2C2E";
+const COLOR_BORDER_DANGER: &str = "#FF453A";
+
+const COLOR_TEXT_PRIMARY: &str = "#FFFFFF";
+const COLOR_TEXT_SECONDARY: &str = "#98989D";
+const COLOR_TEXT_MUTED: &str = "#636366";
+const COLOR_TEXT_SUCCESS: &str = "#32D74B";
+const COLOR_TEXT_WARN: &str = "#FFD60A";
+const COLOR_TEXT_DANGER: &str = "#FF453A";
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum UiTab {
+    Extract,
+    Tutorial,
+}
 
 #[derive(Clone)]
 struct UiState {
@@ -20,6 +54,7 @@ struct UiState {
     status: String,
     devices: Vec<DeviceInfo>,
     source_file: Option<String>,
+    active_tab: UiTab,
 }
 
 static UI_STATE: OnceLock<Mutex<UiState>> = OnceLock::new();
@@ -31,28 +66,52 @@ fn ui_state() -> &'static Mutex<UiState> {
             status: "请选择 Android zip 或 iOS sqlite 文件".to_string(),
             devices: Vec::new(),
             source_file: None,
+            active_tab: UiTab::Extract,
         })
     })
 }
 
 pub fn ui_event_processor(evtype: ui::Event, event: &str) {
-    if evtype != ui::Event::Click {
-        return;
-    }
-
-    match event {
-        PICK_ANDROID_ZIP_EVENT => process_pick_and_extract(Platform::Android),
-        PICK_IOS_SQLITE_EVENT => process_pick_and_extract(Platform::Ios),
-        CLEAR_RESULT_EVENT => {
-            {
-                let mut state = ui_state()
-                    .lock()
-                    .unwrap_or_else(|poisoned| poisoned.into_inner());
-                state.status = "已清空结果，请重新选择文件".to_string();
-                state.devices.clear();
-                state.source_file = None;
+    match evtype {
+        ui::Event::Click => match event {
+            PICK_ANDROID_ZIP_EVENT => process_pick_and_extract(Platform::Android),
+            PICK_IOS_SQLITE_EVENT => process_pick_and_extract(Platform::Ios),
+            TAB_EXTRACT_EVENT => {
+                {
+                    let mut state = ui_state()
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    state.active_tab = UiTab::Extract;
+                }
+                render_state();
             }
-            render_state();
+            TAB_TUTORIAL_EVENT => {
+                {
+                    let mut state = ui_state()
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    state.active_tab = UiTab::Tutorial;
+                }
+                render_state();
+            }
+            CLEAR_RESULT_EVENT => {
+                {
+                    let mut state = ui_state()
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    state.status = "已清空结果，请重新选择文件".to_string();
+                    state.devices.clear();
+                    state.source_file = None;
+                    state.active_tab = UiTab::Extract;
+                }
+                render_state();
+            }
+            _ => {}
+        },
+        ui::Event::Input | ui::Event::Change => {
+            if event.starts_with(KEY_INPUT_LOCK_PREFIX) {
+                render_state();
+            }
         }
         _ => {}
     }
@@ -64,6 +123,7 @@ fn process_pick_and_extract(platform: Platform) {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         state.status = format!("正在选择并处理 {} 文件...", platform.as_label());
+        state.active_tab = UiTab::Extract;
     }
     render_state();
 
@@ -129,7 +189,7 @@ fn run_pick_and_extract(platform: Platform) -> Result<ExtractionOutcome, String>
         multiple: false,
         extensions: match platform {
             Platform::Android => vec!["zip".to_string()],
-            Platform::Ios => vec!["sqlite".to_string(), "db".to_string()],
+            Platform::Ios => vec![],
         },
         default_directory: "".to_string(),
         default_file_name: "".to_string(),
@@ -273,93 +333,373 @@ fn render_state() {
     }
 }
 
+// ======================== UI 构建逻辑重构 ========================
+
 fn build_main_ui(state: &UiState) -> ui::Element {
-    let title = ui::Element::new(ui::ElementType::P, Some("Mi Fitness 设备信息提取器")).size(26);
-    let intro = ui::Element::new(
+    let title = ui::Element::new(ui::ElementType::P, Some("Mi Fitness Extractor"))
+        .size(22)
+        .text_color(COLOR_TEXT_PRIMARY);
+    let subtitle = ui::Element::new(
         ui::ElementType::P,
-        Some("安卓请选择导出的 zip；iOS 请选择 manifest sqlite。"),
+        Some("提取 Mi Fitness 导出文件中的设备名与 encryptKey"),
+    )
+    .margin_top(6)
+    .size(13)
+    .text_color(COLOR_TEXT_SECONDARY);
+
+    // Header不再需要背景，直接利用纯净的排版
+    let header = ui::Element::new(ui::ElementType::Div, None)
+        .width_full()
+        .child(title)
+        .child(subtitle);
+
+    let tab_bar = build_tab_bar(state.active_tab);
+    let tab_content = match state.active_tab {
+        UiTab::Extract => build_extract_tab(state),
+        UiTab::Tutorial => build_tutorial_tab(),
+    };
+
+    // 根节点：彻底移除 .bg(...)，不产生独立大背景色，适配宿主深色模式
+    ui::Element::new(ui::ElementType::Div, None)
+        .width_full()
+        .padding(16)
+        .child(header)
+        .child(tab_bar)
+        .child(tab_content)
+}
+
+fn build_tab_bar(active_tab: UiTab) -> ui::Element {
+    let extract_tab = build_single_tab(
+        "提取器",
+        TAB_EXTRACT_EVENT,
+        active_tab == UiTab::Extract,
+        true,
+    );
+    let tutorial_tab = build_single_tab(
+        "使用教程",
+        TAB_TUTORIAL_EVENT,
+        active_tab == UiTab::Tutorial,
+        false,
     );
 
-    let android_btn = ui::Element::new(ui::ElementType::Button, Some("选择安卓 ZIP"))
-        .bg("#2D7CF7")
-        .text_color("#FFFFFF")
-        .margin_right(8)
-        .on(ui::Event::Click, PICK_ANDROID_ZIP_EVENT);
+    let tab_wrap = ui::Element::new(ui::ElementType::Div, None)
+        .flex()
+        .flex_direction(ui::FlexDirection::Row)
+        .align_center()
+        .bg(COLOR_BG_TAB_WRAP)
+        .radius(8)
+        .padding(4)
+        .child(extract_tab)
+        .child(tutorial_tab);
 
-    let ios_btn = ui::Element::new(ui::ElementType::Button, Some("选择 iOS SQLite"))
-        .bg("#138A5B")
-        .text_color("#FFFFFF")
-        .on(ui::Event::Click, PICK_IOS_SQLITE_EVENT);
+    ui::Element::new(ui::ElementType::Div, None)
+        .width_full()
+        .flex()
+        .margin_top(18)
+        .margin_bottom(18)
+        .child(tab_wrap)
+}
 
-    let clear_btn = ui::Element::new(ui::ElementType::Button, Some("清空结果"))
-        .margin_top(8)
-        .on(ui::Event::Click, CLEAR_RESULT_EVENT);
+fn build_single_tab(label: &str, event_id: &str, active: bool, first: bool) -> ui::Element {
+    let (bg, text_color) = if active {
+        (COLOR_BG_TAB_ACTIVE, COLOR_TEXT_PRIMARY)
+    } else {
+        (COLOR_BG_TAB_IDLE, COLOR_TEXT_MUTED)
+    };
+
+    let mut tab = ui::Element::new(ui::ElementType::Button, Some(label))
+        .without_default_styles()
+        .on(ui::Event::Click, event_id)
+        .bg(bg)
+        .radius(6)
+        .padding_top(6)
+        .padding_bottom(6)
+        .padding_left(16)
+        .padding_right(16)
+        .size(13)
+        .text_color(text_color)
+        .transition("all 0.2s ease");
+
+    if first {
+        tab = tab.margin_right(4);
+    }
+    tab
+}
+
+fn build_action_button(
+    label: &str,
+    event_id: &str,
+    bg: &str,
+    border_col: &str,
+    text_color: &str,
+) -> ui::Element {
+    let mut btn = ui::Element::new(ui::ElementType::Button, Some(label))
+        .without_default_styles()
+        .on(ui::Event::Click, event_id)
+        .bg(bg)
+        .radius(8)
+        .padding_top(8)
+        .padding_bottom(8)
+        .padding_left(14)
+        .padding_right(14)
+        .size(13)
+        .text_color(text_color)
+        .transition("all 0.2s ease");
+
+    if border_col != "transparent" {
+        btn = btn.border(1, border_col);
+    }
+    btn
+}
+
+fn status_text_color(status: &str) -> &'static str {
+    if status.starts_with("处理失败") {
+        COLOR_TEXT_DANGER
+    } else if status.starts_with("正在") {
+        COLOR_TEXT_WARN
+    } else if status.starts_with("解析完成") {
+        COLOR_TEXT_SUCCESS
+    } else {
+        COLOR_TEXT_PRIMARY
+    }
+}
+
+fn build_extract_tab(state: &UiState) -> ui::Element {
+    let android_btn = build_action_button(
+        "选择 Android ZIP",
+        PICK_ANDROID_ZIP_EVENT,
+        COLOR_BG_BTN_PRIMARY,
+        "transparent",
+        COLOR_TEXT_BTN_PRIMARY,
+    )
+    .margin_right(8);
+
+    let ios_btn = build_action_button(
+        "选择 iOS SQLite",
+        PICK_IOS_SQLITE_EVENT,
+        COLOR_BG_BTN_SECONDARY,
+        "transparent",
+        COLOR_TEXT_BTN_SECONDARY,
+    )
+    .margin_right(8);
+
+    let clear_btn = build_action_button(
+        "清空",
+        CLEAR_RESULT_EVENT,
+        COLOR_BG_BTN_DANGER,
+        COLOR_BORDER_DANGER,
+        COLOR_TEXT_BTN_DANGER,
+    );
 
     let action_row = ui::Element::new(ui::ElementType::Div, None)
         .flex()
         .flex_direction(ui::FlexDirection::Row)
-        .margin_top(12)
+        .align_center()
+        .margin_bottom(16)
         .child(android_btn)
-        .child(ios_btn);
+        .child(ios_btn)
+        .child(clear_btn);
 
-    let status_text = ui::Element::new(ui::ElementType::P, Some(state.status.as_str()))
-        .margin_top(12)
-        .size(16);
-
-    let source_text = match &state.source_file {
-        Some(path) => ui::Element::new(
-            ui::ElementType::P,
-            Some(format!("来源文件: {}", path).as_str()),
-        )
-        .margin_top(8),
-        None => ui::Element::new(ui::ElementType::P, Some("来源文件: -")).margin_top(8),
+    let source_line = match &state.source_file {
+        Some(path) => format!("来源: {}", path),
+        None => "来源: -".to_string(),
     };
 
-    let list_title = ui::Element::new(ui::ElementType::P, Some("设备列表"))
-        .size(20)
-        .margin_top(16);
-    let list = build_device_list(&state.devices);
+    let status_text = ui::Element::new(ui::ElementType::P, Some(state.status.as_str()))
+        .size(14)
+        .text_color(status_text_color(state.status.as_str()));
+    let source_text = ui::Element::new(ui::ElementType::P, Some(source_line.as_str()))
+        .margin_top(6)
+        .size(12)
+        .text_color(COLOR_TEXT_MUTED);
+
+    let status_block = ui::Element::new(ui::ElementType::Div, None)
+        .width_full()
+        .border(1, COLOR_BORDER_SOFT)
+        .radius(8)
+        .padding(14)
+        .margin_bottom(20)
+        .child(status_text)
+        .child(source_text);
+
+    let count_label = format!("{} 找到", state.devices.len());
+    let result_title = ui::Element::new(ui::ElementType::Div, None)
+        .width_full()
+        .flex()
+        .flex_direction(ui::FlexDirection::Row)
+        .align_center()
+        .margin_bottom(12)
+        .child(
+            ui::Element::new(ui::ElementType::P, Some("解析结果"))
+                .size(15)
+                .text_color(COLOR_TEXT_PRIMARY),
+        )
+        .child(
+            ui::Element::new(ui::ElementType::Span, Some(count_label.as_str()))
+                .margin_left(8)
+                .padding_top(2)
+                .padding_bottom(2)
+                .padding_left(6)
+                .padding_right(6)
+                .size(11)
+                .text_color(COLOR_TEXT_SECONDARY)
+                .bg(COLOR_BG_BADGE)
+                .radius(4),
+        );
+
+    let result_list = build_device_list(state);
 
     ui::Element::new(ui::ElementType::Div, None)
-        .flex()
-        .flex_direction(ui::FlexDirection::Column)
         .width_full()
-        .padding(16)
-        .child(title)
-        .child(intro)
         .child(action_row)
-        .child(clear_btn)
-        .child(status_text)
-        .child(source_text)
-        .child(list_title)
-        .child(list)
+        .child(status_block)
+        .child(result_title)
+        .child(result_list)
 }
 
-fn build_device_list(devices: &[DeviceInfo]) -> ui::Element {
-    if devices.is_empty() {
-        return ui::Element::new(ui::ElementType::P, Some("暂无结果"));
+fn build_device_list(state: &UiState) -> ui::Element {
+    if state.devices.is_empty() {
+        return ui::Element::new(ui::ElementType::Div, None)
+            .width_full()
+            .padding(24)
+            .flex()
+            .justify_center()
+            .align_center()
+            .border(1, COLOR_BORDER_SOFT)
+            .radius(8)
+            .child(
+                ui::Element::new(ui::ElementType::P, Some("暂无设备数据"))
+                    .size(13)
+                    .text_color(COLOR_TEXT_MUTED),
+            );
     }
 
     let mut container = ui::Element::new(ui::ElementType::Div, None).width_full();
-    for item in devices {
-        let name_line = format!("设备: {}", item.name);
-        let key_line = format!("encryptKey: {}", item.encrypt_key);
-        let source_line = format!("平台: {}", item.platform.as_label());
+    for (index, item) in state.devices.iter().enumerate() {
+        let lock_event = format!("{}{}", KEY_INPUT_LOCK_PREFIX, index);
+
+        let platform_badge =
+            ui::Element::new(ui::ElementType::Span, Some(item.platform.as_label()))
+                .padding_top(2)
+                .padding_bottom(2)
+                .padding_left(6)
+                .padding_right(6)
+                .size(11)
+                .text_color(COLOR_TEXT_SECONDARY)
+                .bg(COLOR_BG_BADGE)
+                .radius(4);
+
+        let card_title = ui::Element::new(ui::ElementType::P, Some(item.name.as_str()))
+            .size(15)
+            .margin_left(8)
+            .text_color(COLOR_TEXT_PRIMARY);
+
+        let header_row = ui::Element::new(ui::ElementType::Div, None)
+            .width_full()
+            .flex()
+            .flex_direction(ui::FlexDirection::Row)
+            .align_center()
+            .child(platform_badge)
+            .child(card_title);
 
         let card = ui::Element::new(ui::ElementType::Div, None)
             .width_full()
-            .padding(12)
-            .margin_top(8)
+            .margin_bottom(12)
+            .border(1, COLOR_BORDER_SOFT)
             .radius(8)
-            .border(1, "#D0D7DE")
-            .child(ui::Element::new(ui::ElementType::P, Some(name_line.as_str())).size(18))
-            .child(ui::Element::new(ui::ElementType::P, Some(key_line.as_str())).margin_top(6))
-            .child(ui::Element::new(ui::ElementType::P, Some(source_line.as_str())).margin_top(6));
+            .padding(14)
+            .transition("all 0.2s ease")
+            .child(header_row)
+            .child(
+                ui::Element::new(ui::ElementType::P, Some("encryptKey"))
+                    .margin_top(12)
+                    .size(12)
+                    .text_color(COLOR_TEXT_MUTED),
+            )
+            .child(
+                ui::Element::new(ui::ElementType::Input, Some(item.encrypt_key.as_str()))
+                    .without_default_styles()
+                    .margin_top(6)
+                    .width_full()
+                    .padding(10)
+                    .bg(COLOR_BG_INPUT)
+                    .border(1, COLOR_BORDER_SOFT)
+                    .radius(6)
+                    .size(13)
+                    .text_color(COLOR_TEXT_PRIMARY)
+                    .transition("all 0.2s ease")
+                    .on(ui::Event::Input, lock_event.as_str()),
+            );
 
         container = container.child(card);
     }
-
     container
+}
+
+fn build_tutorial_video(video_src: &str) -> ui::Element {
+    ui::Element::new(ui::ElementType::Video, Some(video_src))
+        .width_full()
+        .height(280)
+        .margin_top(12)
+        .border(1, COLOR_BORDER_SOFT)
+        .radius(8)
+}
+
+fn build_tutorial_section(title: &str, lines: &[&str], video_src: &str) -> ui::Element {
+    let section_title = ui::Element::new(ui::ElementType::P, Some(title))
+        .size(14)
+        .text_color(COLOR_TEXT_PRIMARY);
+
+    let mut list = ui::Element::new(ui::ElementType::Div, None)
+        .width_full()
+        .margin_top(8)
+        .border(1, COLOR_BORDER_SOFT)
+        .radius(8)
+        .padding(14);
+
+    for (index, line) in lines.iter().enumerate() {
+        let line_text = format!("{}. {}", index + 1, line);
+        let mut el = ui::Element::new(ui::ElementType::P, Some(line_text.as_str()))
+            .size(13)
+            .text_color(COLOR_TEXT_SECONDARY);
+        if index > 0 {
+            el = el.margin_top(8);
+        }
+        list = list.child(el);
+    }
+
+    ui::Element::new(ui::ElementType::Div, None)
+        .width_full()
+        .margin_bottom(16)
+        .child(section_title)
+        .child(list)
+        .child(build_tutorial_video(video_src))
+}
+
+fn build_tutorial_tab() -> ui::Element {
+    let android_section = build_tutorial_section(
+        "Android 导出流程",
+        &[
+            "在手机端导出 Mi Fitness 数据，获得 zip 文件",
+            "点击“选择 Android ZIP”并等待解析完成",
+            "在结果列表复制 encryptKey，用于后续登录或迁移",
+        ],
+        TUTORIAL_VID_ANDROID,
+    );
+    let ios_section = build_tutorial_section(
+        "iOS 导出流程",
+        &[
+            "从备份中导出 Mi Fitness 的 sqlite/db 文件",
+            "点击“选择 iOS SQLite”后等待解析",
+            "对照设备名称并复制对应 encryptKey",
+        ],
+        TUTORIAL_VID_IOS,
+    );
+
+    ui::Element::new(ui::ElementType::Div, None)
+        .width_full()
+        .child(android_section)
+        .child(ios_section)
 }
 
 pub fn render_main_ui(element_id: &str) {
