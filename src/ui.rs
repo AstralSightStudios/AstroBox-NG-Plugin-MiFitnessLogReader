@@ -19,20 +19,22 @@ pub const TAB_TUTORIAL_EVENT: &str = "tab_tutorial";
 
 const KEY_INPUT_LOCK_PREFIX: &str = "lock_key_";
 
-const COLOR_BG_TAB_WRAP: &str = "#1C1C1E";
+// --- UI 颜色定义 ---
+const COLOR_BG_CARD: &str = "#1C1C1E";       // 卡片背景，比底层背景亮一点，产生浮动感
+const COLOR_BG_TAB_WRAP: &str = "#242426";
 const COLOR_BG_TAB_ACTIVE: &str = "#3A3A3C";
 const COLOR_BG_TAB_IDLE: &str = "transparent";
 const COLOR_BG_BADGE: &str = "#2C2C2E";
 const COLOR_BG_INPUT: &str = "#000000";
 
-const COLOR_BG_BTN_PRIMARY: &str = "#FFFFFF";
-const COLOR_TEXT_BTN_PRIMARY: &str = "#000000";
+const COLOR_BG_BTN_PRIMARY: &str = "#0A84FF"; // 使用亮蓝色作为主行为，引导视觉
+const COLOR_TEXT_BTN_PRIMARY: &str = "#FFFFFF";
 const COLOR_BG_BTN_SECONDARY: &str = "#2C2C2E";
 const COLOR_TEXT_BTN_SECONDARY: &str = "#FFFFFF";
-const COLOR_BG_BTN_DANGER: &str = "transparent";
+const COLOR_BG_BTN_DANGER: &str = "#3A1A1E";  // 危险操作用微红底色，避免镂空太生硬
 const COLOR_TEXT_BTN_DANGER: &str = "#FF453A";
 
-const COLOR_BORDER_SOFT: &str = "#2C2C2E";
+const COLOR_BORDER_SOFT: &str = "#38383A";    // 稍微提亮边框，增加精致感
 const COLOR_BORDER_DANGER: &str = "#FF453A";
 
 const COLOR_TEXT_PRIMARY: &str = "#FFFFFF";
@@ -337,19 +339,19 @@ fn render_state() {
 
 fn build_main_ui(state: &UiState) -> ui::Element {
     let title = ui::Element::new(ui::ElementType::P, Some("Mi Fitness Extractor"))
-        .size(22)
+        .size(24) // 增大主标题字号
         .text_color(COLOR_TEXT_PRIMARY);
     let subtitle = ui::Element::new(
         ui::ElementType::P,
         Some("提取 Mi Fitness 导出文件中的设备名与 encryptKey"),
     )
     .margin_top(6)
-    .size(13)
+    .size(14)
     .text_color(COLOR_TEXT_SECONDARY);
 
-    // Header不再需要背景，直接利用纯净的排版
     let header = ui::Element::new(ui::ElementType::Div, None)
         .width_full()
+        .margin_bottom(10)
         .child(title)
         .child(subtitle);
 
@@ -359,10 +361,9 @@ fn build_main_ui(state: &UiState) -> ui::Element {
         UiTab::Tutorial => build_tutorial_tab(),
     };
 
-    // 根节点：彻底移除 .bg(...)，不产生独立大背景色，适配宿主深色模式
     ui::Element::new(ui::ElementType::Div, None)
         .width_full()
-        .padding(16)
+        .padding(20) // 增加全局外边距，让整体呼吸感更强
         .child(header)
         .child(tab_bar)
         .child(tab_content)
@@ -370,7 +371,7 @@ fn build_main_ui(state: &UiState) -> ui::Element {
 
 fn build_tab_bar(active_tab: UiTab) -> ui::Element {
     let extract_tab = build_single_tab(
-        "提取器",
+        "提取工具",
         TAB_EXTRACT_EVENT,
         active_tab == UiTab::Extract,
         true,
@@ -387,16 +388,18 @@ fn build_tab_bar(active_tab: UiTab) -> ui::Element {
         .flex_direction(ui::FlexDirection::Row)
         .align_center()
         .bg(COLOR_BG_TAB_WRAP)
-        .radius(8)
+        .radius(10) // 更圆润的胶囊包裹
         .padding(4)
         .child(extract_tab)
         .child(tutorial_tab);
 
+    // 将 Tab 整体居中，更符合工具类 App 的现代布局
     ui::Element::new(ui::ElementType::Div, None)
         .width_full()
         .flex()
-        .margin_top(18)
-        .margin_bottom(18)
+        .justify_center()
+        .margin_top(16)
+        .margin_bottom(24)
         .child(tab_wrap)
 }
 
@@ -411,11 +414,11 @@ fn build_single_tab(label: &str, event_id: &str, active: bool, first: bool) -> u
         .without_default_styles()
         .on(ui::Event::Click, event_id)
         .bg(bg)
-        .radius(6)
-        .padding_top(6)
-        .padding_bottom(6)
-        .padding_left(16)
-        .padding_right(16)
+        .radius(8)
+        .padding_top(8)
+        .padding_bottom(8)
+        .padding_left(20)
+        .padding_right(20)
         .size(13)
         .text_color(text_color)
         .transition("all 0.2s ease");
@@ -437,11 +440,11 @@ fn build_action_button(
         .without_default_styles()
         .on(ui::Event::Click, event_id)
         .bg(bg)
-        .radius(8)
-        .padding_top(8)
-        .padding_bottom(8)
-        .padding_left(14)
-        .padding_right(14)
+        .radius(10) // 提升圆角
+        .padding_top(10)
+        .padding_bottom(10)
+        .padding_left(16)
+        .padding_right(16)
         .size(13)
         .text_color(text_color)
         .transition("all 0.2s ease");
@@ -468,11 +471,11 @@ fn build_extract_tab(state: &UiState) -> ui::Element {
     let android_btn = build_action_button(
         "选择 Android ZIP",
         PICK_ANDROID_ZIP_EVENT,
-        COLOR_BG_BTN_PRIMARY,
+        COLOR_BG_BTN_PRIMARY,   // 亮蓝色，强调主操作
         "transparent",
         COLOR_TEXT_BTN_PRIMARY,
     )
-    .margin_right(8);
+    .margin_right(10);
 
     let ios_btn = build_action_button(
         "选择 iOS SQLite",
@@ -481,13 +484,13 @@ fn build_extract_tab(state: &UiState) -> ui::Element {
         "transparent",
         COLOR_TEXT_BTN_SECONDARY,
     )
-    .margin_right(8);
+    .margin_right(10);
 
     let clear_btn = build_action_button(
         "清空",
         CLEAR_RESULT_EVENT,
-        COLOR_BG_BTN_DANGER,
-        COLOR_BORDER_DANGER,
+        COLOR_BG_BTN_DANGER,    // 微红底色
+        "transparent",          // 拿掉红色边框，显得没那么扎眼
         COLOR_TEXT_BTN_DANGER,
     );
 
@@ -495,14 +498,14 @@ fn build_extract_tab(state: &UiState) -> ui::Element {
         .flex()
         .flex_direction(ui::FlexDirection::Row)
         .align_center()
-        .margin_bottom(16)
+        .margin_bottom(20)
         .child(android_btn)
         .child(ios_btn)
         .child(clear_btn);
 
     let source_line = match &state.source_file {
         Some(path) => format!("来源: {}", path),
-        None => "来源: -".to_string(),
+        None => "尚未加载文件".to_string(),
     };
 
     let status_text = ui::Element::new(ui::ElementType::P, Some(state.status.as_str()))
@@ -515,36 +518,37 @@ fn build_extract_tab(state: &UiState) -> ui::Element {
 
     let status_block = ui::Element::new(ui::ElementType::Div, None)
         .width_full()
+        .bg(COLOR_BG_CARD) // 给状态框加上卡片底色
         .border(1, COLOR_BORDER_SOFT)
-        .radius(8)
-        .padding(14)
-        .margin_bottom(20)
+        .radius(10)
+        .padding(16)
+        .margin_bottom(24)
         .child(status_text)
         .child(source_text);
 
-    let count_label = format!("{} 找到", state.devices.len());
+    let count_label = format!("{} 台设备", state.devices.len());
     let result_title = ui::Element::new(ui::ElementType::Div, None)
         .width_full()
         .flex()
         .flex_direction(ui::FlexDirection::Row)
         .align_center()
-        .margin_bottom(12)
+        .margin_bottom(16)
         .child(
             ui::Element::new(ui::ElementType::P, Some("解析结果"))
-                .size(15)
+                .size(16)
                 .text_color(COLOR_TEXT_PRIMARY),
         )
         .child(
             ui::Element::new(ui::ElementType::Span, Some(count_label.as_str()))
-                .margin_left(8)
+                .margin_left(10)
                 .padding_top(2)
                 .padding_bottom(2)
-                .padding_left(6)
-                .padding_right(6)
+                .padding_left(8)
+                .padding_right(8)
                 .size(11)
                 .text_color(COLOR_TEXT_SECONDARY)
                 .bg(COLOR_BG_BADGE)
-                .radius(4),
+                .radius(6),
         );
 
     let result_list = build_device_list(state);
@@ -561,14 +565,15 @@ fn build_device_list(state: &UiState) -> ui::Element {
     if state.devices.is_empty() {
         return ui::Element::new(ui::ElementType::Div, None)
             .width_full()
-            .padding(24)
+            .padding(30)
             .flex()
             .justify_center()
             .align_center()
+            .bg(COLOR_BG_CARD)
             .border(1, COLOR_BORDER_SOFT)
-            .radius(8)
+            .radius(10)
             .child(
-                ui::Element::new(ui::ElementType::P, Some("暂无设备数据"))
+                ui::Element::new(ui::ElementType::P, Some("等待提取数据..."))
                     .size(13)
                     .text_color(COLOR_TEXT_MUTED),
             );
@@ -580,18 +585,18 @@ fn build_device_list(state: &UiState) -> ui::Element {
 
         let platform_badge =
             ui::Element::new(ui::ElementType::Span, Some(item.platform.as_label()))
-                .padding_top(2)
-                .padding_bottom(2)
-                .padding_left(6)
-                .padding_right(6)
+                .padding_top(3)
+                .padding_bottom(3)
+                .padding_left(8)
+                .padding_right(8)
                 .size(11)
                 .text_color(COLOR_TEXT_SECONDARY)
                 .bg(COLOR_BG_BADGE)
-                .radius(4);
+                .radius(6);
 
         let card_title = ui::Element::new(ui::ElementType::P, Some(item.name.as_str()))
             .size(15)
-            .margin_left(8)
+            .margin_left(10)
             .text_color(COLOR_TEXT_PRIMARY);
 
         let header_row = ui::Element::new(ui::ElementType::Div, None)
@@ -604,27 +609,28 @@ fn build_device_list(state: &UiState) -> ui::Element {
 
         let card = ui::Element::new(ui::ElementType::Div, None)
             .width_full()
-            .margin_bottom(12)
+            .margin_bottom(14)
+            .bg(COLOR_BG_CARD) // 设备列表使用卡片设计
             .border(1, COLOR_BORDER_SOFT)
-            .radius(8)
-            .padding(14)
+            .radius(10)
+            .padding(16)
             .transition("all 0.2s ease")
             .child(header_row)
             .child(
                 ui::Element::new(ui::ElementType::P, Some("encryptKey"))
-                    .margin_top(12)
+                    .margin_top(14)
                     .size(12)
                     .text_color(COLOR_TEXT_MUTED),
             )
             .child(
                 ui::Element::new(ui::ElementType::Input, Some(item.encrypt_key.as_str()))
                     .without_default_styles()
-                    .margin_top(6)
+                    .margin_top(8)
                     .width_full()
-                    .padding(10)
+                    .padding(12)
                     .bg(COLOR_BG_INPUT)
                     .border(1, COLOR_BORDER_SOFT)
-                    .radius(6)
+                    .radius(8)
                     .size(13)
                     .text_color(COLOR_TEXT_PRIMARY)
                     .transition("all 0.2s ease")
@@ -639,23 +645,24 @@ fn build_device_list(state: &UiState) -> ui::Element {
 fn build_tutorial_video(video_src: &str) -> ui::Element {
     ui::Element::new(ui::ElementType::Video, Some(video_src))
         .width_full()
-        .height(280)
-        .margin_top(12)
+        .height(260)
+        .margin_top(16)
         .border(1, COLOR_BORDER_SOFT)
-        .radius(8)
+        .radius(10)
 }
 
 fn build_tutorial_section(title: &str, lines: &[&str], video_src: &str) -> ui::Element {
     let section_title = ui::Element::new(ui::ElementType::P, Some(title))
-        .size(14)
+        .size(16)
         .text_color(COLOR_TEXT_PRIMARY);
 
     let mut list = ui::Element::new(ui::ElementType::Div, None)
         .width_full()
-        .margin_top(8)
+        .margin_top(12)
+        .bg(COLOR_BG_CARD) // 卡片化
         .border(1, COLOR_BORDER_SOFT)
-        .radius(8)
-        .padding(14);
+        .radius(10)
+        .padding(16);
 
     for (index, line) in lines.iter().enumerate() {
         let line_text = format!("{}. {}", index + 1, line);
@@ -663,14 +670,14 @@ fn build_tutorial_section(title: &str, lines: &[&str], video_src: &str) -> ui::E
             .size(13)
             .text_color(COLOR_TEXT_SECONDARY);
         if index > 0 {
-            el = el.margin_top(8);
+            el = el.margin_top(10);
         }
         list = list.child(el);
     }
 
     ui::Element::new(ui::ElementType::Div, None)
         .width_full()
-        .margin_bottom(16)
+        .margin_bottom(24)
         .child(section_title)
         .child(list)
         .child(build_tutorial_video(video_src))
