@@ -687,18 +687,19 @@ fn build_tutorial_tab() -> ui::Element {
     let android_section = build_tutorial_section(
         "Android 导出流程",
         &[
-            "在手机端导出 Mi Fitness 数据，获得 zip 文件",
-            "点击“选择 Android ZIP”并等待解析完成",
-            "在结果列表复制 encryptKey，用于后续登录或迁移",
+            "打开小米运动健康App，点击底栏中的“我的”，滑动到底部，进入“关于”页",
+            "在页面中快速连续点击App图标多次，直到出现“Log迁移至...”提示，点击确定",
+            "在该插件功能页中点击“选择Android ZIP”，进入路径“本机内部存储 > Downloads > wearablelog”，选取最新的log压缩包",
         ],
         TUTORIAL_VID_ANDROID,
     );
     let ios_section = build_tutorial_section(
         "iOS 导出流程",
         &[
-            "从备份中导出 Mi Fitness 的 sqlite/db 文件",
-            "点击“选择 iOS SQLite”后等待解析",
-            "对照设备名称并复制对应 encryptKey",
+            "在该插件功能页中点击“选择iOS SQLite”",
+            "在打开的文件选取器中进入“我的iPhone”",
+            "进入路径“小米运动健康 > MHWCahe > 你的小米账号ID > VirtualDevice_registerList”",
+            "选取名为“manifest.sqlite”的文件"
         ],
         TUTORIAL_VID_IOS,
     );
