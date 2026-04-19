@@ -1,10 +1,10 @@
 {
-    "name": "MiFitness Device Info Extractor",
+    "name": "AuthKey提取工具",
     "icon": "icon.png",
     "version": "1.0.0",
-    "description": "从 Mi Fitness 安卓/iOS 导出文件中提取设备名和 encryptKey",
+    "description": "从小米运动健康的日志或数据库文件中提取设备名和AuthKey",
     "author": "AstroBox Team",
-    "website": "https://example.com",
+    "website": "https://astrobox.online",
     "entry": "astrobox_ng_plugin_mifitness_log_reader.wasm",
     "wasi_version": 2,
     "api_level": 2,
